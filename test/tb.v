@@ -37,7 +37,7 @@ module tb ();
       uio_in[3] = sda;
     end
   
-  tt_sine_gen dut (
+  tt_um_sine_gen dut (
 
       // Include power ports for the Gate Level test:
 `ifdef GL_TEST
