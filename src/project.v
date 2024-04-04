@@ -5,7 +5,7 @@
 
 `define default_netname none
 
-module tt_um_example (
+module tt_sine_gen (
     input  wire [7:0] ui_in,    // Dedicated inputs
     output wire [7:0] uo_out,   // Dedicated outputs
     input  wire [7:0] uio_in,   // IOs: Input path
@@ -16,9 +16,95 @@ module tt_um_example (
     input  wire       rst_n     // reset_n - low to reset
 );
 
+  localparam WL = 16;
+  localparam PADDR_WL = 8;
+  localparam PADDR_CFG_WL = 2;
+  localparam PDATA_WL = 8;
+  localparam PDATA_CFG_WC = 2**PADDR_CFG_WL;
+  
   // All output pins must be assigned. If not used, assign to 0.
-  assign uo_out  = ui_in + uio_in;  // Example: ou_out is the sum of ui_in and uio_in
-  assign uio_out = 0;
-  assign uio_oe  = 0;
+  assign uo_out  = sine[WL-1:WL-8];
+  
+  reg  ena_prev;
+  wire load = ena ^ ena_prev;
+  wire signed [WL-1:0] sine, cosW, sinW;
+
+  freq2trig #(
+    .WL(WL))
+  f2t_inst (
+    .freq(cfg[0]),
+    .cosW(cosW),
+    .sinW(sinW));
+
+  sine_gen #(
+    .WL(WL))
+  sine_gen_inst (
+    .clk(clk),
+    .reset_b(rst_n),
+    .en(ena),
+    .load(pready),
+    .cosW(cosW),
+    .sinW(sinW),
+    .sine(sine));
+
+  always @(posedge clk, negedge rst_n)
+    if (! rst_n)
+      ena_prev <= 0;
+    else
+      ena_prev <= ena;
+
+  // hook up I2C IOs, refer to https://tinytapeout.com/specs/pinouts/#i2c-optional-interrupt-and-reset
+  wire       scl_in = uio_in[2];
+  wire       sda_in = uio_in[3];
+  assign uio_out[2] = 1'b0; // scl
+  assign uio_out[3] = 1'b0; // sda
+  assign uio_oe[2]  = ~scl_out;
+  assign uio_oe[3]  = ~sda_out;
+
+  // unused bidirs
+  assign uio_out[1:0] = 0;
+  assign uio_out[7:4] = 0;
+  assign uio_oe[1:0] = 0;
+  assign uio_oe[7:4] = 0;
+                      
+  wire [PADDR_WL-1:0]  paddr;
+  wire [PDATA_WL-1:0]  prdata;   
+  wire [PDATA_WL-1:0]  pwdata;
+  wire [PDATA_WL-1:0]  cfg [PDATA_CFG_WC-1:0];
+
+  i2c_slave #(
+    .PADDR_WL(PADDR_WL))
+  i2c_inst (
+    .clk(clk),
+    .reset_b(rst_n),
+    .pready(pready),
+    .prdata(prdata),
+    .pwdata(pwdata),
+    .paddr(paddr),
+    .penable(penable),
+    .psel(psel),
+    .pwrite(pwrite),
+    .device_address(7'b1010000),
+    .scl_in(scl_in),
+    .sda_in(sda_in),
+    .scl_out(scl_out),
+    .sda_out(sda_out));
+
+  // avoid aliasing by only asserting psel when unused bits are zero
+  wire psel_cfg = psel && paddr[PADDR_WL-1:PADDR_CFG_WL] == 0;
+
+  amba_apb #(
+    .PADDR_WL(PADDR_CFG_WL))
+  apb_cfg_inst (
+    .clk(clk),
+    .reset_b(rst_n),
+    .pwdata(pwdata),
+    .paddr(paddr[PADDR_CFG_WL-1:0]),
+    .penable(penable),
+    .psel(psel_cfg),
+    .pwrite(pwrite),
+    .pready(pready),
+    .prdata(prdata),
+    .data(cfg));
 
 endmodule

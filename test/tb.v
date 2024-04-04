@@ -1,29 +1,43 @@
-`default_nettype none `timescale 1ns / 1ps
+`default_nettype none
+
+`timescale 1ns / 1ps
 
 /* This testbench just instantiates the module and makes some convenient wires
    that can be driven / tested by the cocotb test.py.
 */
 module tb ();
 
+   localparam WL = 8;
+
   // Dump the signals to a VCD file. You can view it with gtkwave.
   initial begin
     $dumpfile("tb.vcd");
     $dumpvars(0, tb);
-    #1;
   end
 
   // Wire up the inputs and outputs:
   reg clk;
   reg rst_n;
   reg ena;
-  reg [7:0] ui_in;
-  reg [7:0] uio_in;
-  wire [7:0] uo_out;
-  wire [7:0] uio_out;
-  wire [7:0] uio_oe;
+  reg scl_tb, sda_tb;
+  reg [WL-1:0] ui_in;
+  reg [WL-1:0] uio_in;
+  wire [WL-1:0] uo_out;
+  wire [WL-1:0] uio_out;
+  wire [WL-1:0] uio_oe;
 
-  // Replace tt_um_example with your module name:
-  tt_um_example user_project (
+  wire           scl, sda;
+  
+  assign scl = scl_tb;
+  assign sda = (~uio_oe[3] | uio_out[3]) & sda_tb;
+
+  always_comb
+    begin
+      uio_in[2] = scl;
+      uio_in[3] = sda;
+    end
+  
+  tt_sine_gen dut (
 
       // Include power ports for the Gate Level test:
 `ifdef GL_TEST
