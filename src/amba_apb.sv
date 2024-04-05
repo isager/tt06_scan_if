@@ -11,35 +11,39 @@ module amba_apb #(
   output                    pready,
   output reg [PDATA_WL-1:0] prdata,
 
-  output reg [PDATA_WL-1:0] data[PDATA_WC-1:0]
+  output reg [PDATA_WL*PDATA_WC-1:0] data
 );
 
-  integer                   i;
+//  integer                   i;
 
   assign pready = psel && penable;
 
   always @(posedge clk or negedge reset_b)
     if (! reset_b)
       begin
-	for (i=0; i<PDATA_WC; i=i+1)
-	  data[i] <= 0;
+	data <= 0;
 	prdata <= 0;
       end
     else if (psel && !penable)
       begin
-	if (pwrite)
-	  begin
-	    for (i=0; i<PDATA_WC; i=i+1)
-	      if (paddr == i)
-		data[i] <= pwdata;
-	  end
-	else
-	  begin
-	    if (paddr < PDATA_WC)
-	      prdata <= data[paddr];
-	    else
-	      prdata <= 0;
-	  end
+        integer i, j;
+        j = paddr*PDATA_WL;
+        
+	if (pwrite && paddr < PDATA_WC)
+          for (i = 0; i < PDATA_WL; i = i+1)
+            begin
+	      data[j] <= pwdata[i];
+              j = j+1;
+            end
+        else if (!pwrite)
+          if (paddr < PDATA_WC)
+            for (i = 0; i < PDATA_WL; i = i+1)
+              begin
+	        prdata[i] <= data[j];
+                j = j+1;
+              end
+	  else
+	    prdata <= 0;
       end
 
 endmodule

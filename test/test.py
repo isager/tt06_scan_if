@@ -32,16 +32,26 @@ async def test_sine(dut):
   dut.rst_n.value = 1
   await ClockCycles(dut.clk, 10)
 
-  await i2c.write(0x50, b'\x00\x10')
+  dut._log.info("Test")
+
+  # write sine frequency setting to address 0
+  freq = 10
+  await i2c.write(0x50, [0, freq])
   await i2c.send_stop()
 
-  #await Timer(100, 'us')
+  # read back freq setting from address 0 and verify
+  await i2c.write(0x50, [0])
+  data = await i2c.read(0x50, 1)
+  await i2c.send_stop()
+  assert data[0] == freq
 
-  # Set the input values, wait one clock cycle, and check the output
-  dut._log.info("Test")
-  dut.ui_in.value = 20
+  # attempt to write to address 8 and verify that it does not exist
+  await i2c.write(0x50, b'\x08\x42')
+  await i2c.send_stop()
 
-  await Timer(1, 'ms')
- # await ClockCycles(dut.clk, 1000)
+  await i2c.write(0x50, b'\x08')
+  data = await i2c.read(0x50, 1)
+  await i2c.send_stop()
+  assert data[0] != 0x42
 
-  #assert dut.uo_out.value == 50
+  await Timer(50, 'us')

@@ -27,12 +27,14 @@ module tt_um_sine_gen (
   
   reg  ena_prev;
   wire load = ena ^ ena_prev;
+  wire [PDATA_WL-1:0] freq;
   wire signed [WL-1:0] sine, cosW, sinW;
+  
 
   freq2trig #(
     .WL(WL))
   f2t_inst (
-    .freq(cfg[0]),
+    .freq(freq),
     .cosW(cosW),
     .sinW(sinW));
 
@@ -70,7 +72,7 @@ module tt_um_sine_gen (
   wire [PADDR_WL-1:0]  paddr;
   wire [PDATA_WL-1:0]  prdata;   
   wire [PDATA_WL-1:0]  pwdata;
-  wire [PDATA_WL-1:0]  cfg [PDATA_CFG_WC-1:0];
+  wire [PDATA_WL*PDATA_CFG_WC-1:0] cfg;
 
   i2c_slave #(
     .PADDR_WL(PADDR_WL))
@@ -106,5 +108,9 @@ module tt_um_sine_gen (
     .pready(pready),
     .prdata(prdata),
     .data(cfg));
+
+  localparam FREQ_IDX = 0;
+  
+  assign freq = cfg[(FREQ_IDX+1)*PDATA_WL-1:FREQ_IDX*PDATA_WL];
 
 endmodule
