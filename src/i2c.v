@@ -89,6 +89,7 @@ module i2c_slave (
    // Outpute and registers
    //-----------------------------------------------------------------
 
+   assign scl_out = 1'b1;
    assign sda_out = ack == 0 ? 0 : 1'b1;
 
    assign paddr = psel ? addr : 0;
